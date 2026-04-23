@@ -36,22 +36,22 @@ if (! class_exists('\KPT\DateTime')) {
         // -------------------------------------------------------------------------
 
         /** Seconds in one minute */
-        const MINUTE_IN_SECONDS = 60;
+        public const MINUTE_IN_SECONDS = 60;
 
         /** Seconds in one hour */
-        const HOUR_IN_SECONDS = self::MINUTE_IN_SECONDS * 60;
+        public const HOUR_IN_SECONDS = self::MINUTE_IN_SECONDS * 60;
 
         /** Seconds in one day */
-        const DAY_IN_SECONDS = self::HOUR_IN_SECONDS * 24;
+        public const DAY_IN_SECONDS = self::HOUR_IN_SECONDS * 24;
 
         /** Seconds in one week */
-        const WEEK_IN_SECONDS = self::DAY_IN_SECONDS * 7;
+        public const WEEK_IN_SECONDS = self::DAY_IN_SECONDS * 7;
 
         /** Seconds in one month (30 days) */
-        const MONTH_IN_SECONDS = self::DAY_IN_SECONDS * 30;
+        public const MONTH_IN_SECONDS = self::DAY_IN_SECONDS * 30;
 
         /** Seconds in one year (365 days) */
-        const YEAR_IN_SECONDS = self::DAY_IN_SECONDS * 365;
+        public const YEAR_IN_SECONDS = self::DAY_IN_SECONDS * 365;
 
         // -------------------------------------------------------------------------
         // Formatting

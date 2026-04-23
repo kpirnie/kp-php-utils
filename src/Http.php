@@ -42,7 +42,6 @@ if (! class_exists('\KPT\Http')) {
 
             // if we dont have any headers, or before they are sent...
             if (! headers_sent()) {
-
                 // Trap any PHP-level warning the header() call might still throw
                 set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
                     throw new \ErrorException($errstr, 0, $errno, $errfile, $errline);

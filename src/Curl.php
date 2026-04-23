@@ -579,7 +579,13 @@ if (! class_exists('\KPT\Curl')) {
             $rawCookies      = [];
             $ch              = curl_init();
 
-            curl_setopt($ch, CURLOPT_HEADERFUNCTION, function (\CurlHandle $ch, string $header) use (&$responseHeaders, &$rawCookies): int {
+            curl_setopt($ch, CURLOPT_HEADERFUNCTION, function (
+                \CurlHandle $ch,
+                string $header
+            ) use (
+                &$responseHeaders,
+                &$rawCookies
+            ): int {
                 $len   = strlen($header);
                 $parts = explode(':', $header, 2);
 

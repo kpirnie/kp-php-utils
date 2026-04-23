@@ -165,7 +165,7 @@ if (! class_exists('\KPT\Crypto')) {
         public static function encryptWithPassphrase(string $value, string $passphrase): string
         {
             if (! extension_loaded('openssl') || ! extension_loaded('sodium')) {
-                throw new \RuntimeException('The openssl and sodium extensions are required for passphrase encryption.');
+                throw new \RuntimeException('The openssl and sodium extensions are required for passphrase encryption');
             }
 
             // Random Argon2id salt — stored in the payload so decrypt() can re-derive the same key
@@ -218,7 +218,7 @@ if (! class_exists('\KPT\Crypto')) {
         public static function decryptWithPassphrase(string $value, string $passphrase): string
         {
             if (! extension_loaded('openssl') || ! extension_loaded('sodium')) {
-                throw new \RuntimeException('The openssl and sodium extensions are required for passphrase decryption.');
+                throw new \RuntimeException('The openssl and sodium extensions are required for passphrase decryption');
             }
 
             $raw = base64_decode($value, strict: true);
