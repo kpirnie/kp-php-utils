@@ -299,7 +299,10 @@ if (! class_exists('\KPT\Cli')) {
                 $widths
             );
 
-            self::line(self::style('|', self::DIM) . implode(self::style('|', self::DIM), $headerCells) . self::style('|', self::DIM));
+            self::line(self::style('|', self::DIM) . implode(self::style(
+                '|',
+                self::DIM
+            ), $headerCells) . self::style('|', self::DIM));
             self::line($divider);
 
             // Data rows
@@ -310,7 +313,10 @@ if (! class_exists('\KPT\Cli')) {
                     $widths
                 );
 
-                self::line(self::style('|', self::DIM) . implode(self::style('|', self::DIM), $cells) . self::style('|', self::DIM));
+                self::line(self::style('|', self::DIM) . implode(self::style(
+                    '|',
+                    self::DIM
+                ), $cells) . self::style('|', self::DIM));
             }
 
             if ($borders) {

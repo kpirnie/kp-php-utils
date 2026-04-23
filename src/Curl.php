@@ -421,7 +421,14 @@ if (! class_exists('\KPT\Curl')) {
         {
             $baseUrl = rtrim($baseUrl, '/');
 
-            return function (string $method, string $path = '', array $options = []) use ($baseUrl, $defaultOptions): array {
+            return function (
+                string $method,
+                string $path = '',
+                array $options = []
+            ) use (
+                $baseUrl,
+                $defaultOptions
+            ): array {
                 $url     = $baseUrl . '/' . ltrim($path, '/');
                 $method  = strtolower($method);
                 $options = array_merge($defaultOptions, $options);
