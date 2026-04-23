@@ -3,7 +3,7 @@
 /**
  * Collection
  *
- * A fluent, immutable array wrapper
+ * A fluent, immutable, lazy-evaluated array wrapper
  *
  * @since      8.2
  * @author     Kevin Pirnie <me@kpirnie.com>
@@ -21,9 +21,19 @@ if (! class_exists('\KPT\Collection')) {
     /**
      * Collection
      *
-     * A modern PHP 8.2+ immutable fluent array wrapper implementing Countable,
-     * IteratorAggregate, and ArrayAccess.  All transformation methods return a
-     * new Collection instance — the original is never modified.
+     * A modern PHP 8.2+ immutable, lazy-evaluated fluent array wrapper
+     * implementing Countable, IteratorAggregate, and ArrayAccess.
+     *
+     * Operations are pipelined as generator closures and not executed until
+     * a terminal operation materializes the collection.  Terminal operations
+     * are: toArray(), toJson(), count(), sort(), sortBy(), reverse(),
+     * unique(), sum(), avg(), min(), max(), and chunk().
+     *
+     * Short-circuit terminal operations — first(), last(), contains(), each()
+     * — consume only as many items as needed without materializing the full set.
+     *
+     * All transformation methods return a new Collection instance — the
+     * original is never modified.
      *
      * @package    KP Library
      * @author     Kevin Pirnie <me@kpirnie.com>
@@ -36,17 +46,38 @@ if (! class_exists('\KPT\Collection')) {
         // Internal state
         // -------------------------------------------------------------------------
 
-        /** @var array The wrapped items */
-        private array $items;
+        /**
+         * Eagerly-stored items — non-null only at the start of a pipeline
+         * or after materialization.
+         *
+         * @var array|null
+         */
+        private ?array $eager = null;
+
+        /**
+         * Lazy pipeline — a closure that returns a Generator when invoked.
+         * Non-null when at least one lazy operation has been chained.
+         *
+         * @var \Closure|null
+         */
+        private ?\Closure $pipeline = null;
+
+        // -------------------------------------------------------------------------
+        // Construction
+        // -------------------------------------------------------------------------
 
         /**
          * Private constructor — use Collection::make() to instantiate.
          *
-         * @param  array  $items
+         * @param  array|\Closure  $source  Eager array or lazy generator factory.
          */
-        private function __construct(array $items = [])
+        private function __construct(array|\Closure $source)
         {
-            $this->items = $items;
+            if ($source instanceof \Closure) {
+                $this->pipeline = $source;
+            } else {
+                $this->eager = $source;
+            }
         }
 
         // -------------------------------------------------------------------------
@@ -54,23 +85,33 @@ if (! class_exists('\KPT\Collection')) {
         // -------------------------------------------------------------------------
 
         /**
-         * Create a new Collection from an array.
+         * Create a new Collection from an array or iterable.
          *
-         * @param  array  $items
+         * The source is stored eagerly — laziness begins with the first
+         * chained transformation.
+         *
+         * @param  iterable  $items
          * @return static
          */
-        public static function make(array $items = []): static
+        public static function make(iterable $items = []): static
         {
-            return new static($items);
+            $array = match (true) {
+                $items instanceof static      => $items->materialize(),
+                $items instanceof \Traversable => iterator_to_array($items),
+                default                        => (array) $items,
+            };
+
+            return new static($array);
         }
 
         // -------------------------------------------------------------------------
-        // Transformation — each returns a new Collection
+        // Lazy transformations — each wraps the previous pipeline in a generator
         // -------------------------------------------------------------------------
 
         /**
          * Filter items through a callback.
          *
+         * Lazy — executes only when the collection is consumed.
          * When no callback is provided, removes all falsy values.
          *
          * @param  callable|null  $callback  fn(mixed $value, mixed $key): bool
@@ -78,75 +119,42 @@ if (! class_exists('\KPT\Collection')) {
          */
         public function filter(?callable $callback = null): static
         {
-            return new static(
-                $callback
-                    ? array_filter($this->items, $callback, ARRAY_FILTER_USE_BOTH)
-                    : array_filter($this->items)
-            );
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $callback): \Generator {
+                foreach ($source() as $key => $item) {
+                    $pass = $callback !== null ? $callback($item, $key) : (bool) $item;
+
+                    if ($pass) {
+                        yield $key => $item;
+                    }
+                }
+            });
         }
 
         /**
          * Apply a callback to every item.
+         *
+         * Lazy — executes only when the collection is consumed.
          *
          * @param  callable  $callback  fn(mixed $value, mixed $key): mixed
          * @return static
          */
         public function map(callable $callback): static
         {
-            return new static(array_map($callback, $this->items, array_keys($this->items)));
-        }
+            $source = $this->pipelineFactory();
 
-        /**
-         * Reduce the collection to a single value.
-         *
-         * @param  callable  $callback  fn(mixed $carry, mixed $item): mixed
-         * @param  mixed     $initial
-         * @return mixed
-         */
-        public function reduce(callable $callback, mixed $initial = null): mixed
-        {
-            return array_reduce($this->items, $callback, $initial);
-        }
-
-        /**
-         * Chunk the collection into smaller Collections of a given size.
-         *
-         * Returns a Collection of Collections.
-         *
-         * @param  int  $size
-         * @return static
-         */
-        public function chunk(int $size): static
-        {
-            return new static(array_map(
-                fn(array $chunk): static => new static($chunk),
-                array_chunk($this->items, max(1, $size), true)
-            ));
-        }
-
-        /**
-         * Group items into Collections keyed by a field or callback result.
-         *
-         * Returns a Collection of Collections.
-         *
-         * @param  string|callable  $key  Field name or fn(mixed $value): mixed
-         * @return static
-         */
-        public function groupBy(string|callable $key): static
-        {
-            $groups = [];
-
-            foreach ($this->items as $item) {
-                $groupKey = is_callable($key) ? $key($item) : (is_array($item) ? $item[$key] : $item->$key);
-
-                $groups[$groupKey][] = $item;
-            }
-
-            return new static(array_map(fn(array $group): static => new static($group), $groups));
+            return new static(function () use ($source, $callback): \Generator {
+                foreach ($source() as $key => $item) {
+                    yield $key => $callback($item, $key);
+                }
+            });
         }
 
         /**
          * Pluck values for a given field, optionally keyed by another field.
+         *
+         * Lazy — executes only when the collection is consumed.
          *
          * @param  string       $value  Field to pluck as the value.
          * @param  string|null  $key    Field to use as the key (optional).
@@ -154,221 +162,77 @@ if (! class_exists('\KPT\Collection')) {
          */
         public function pluck(string $value, ?string $key = null): static
         {
-            $results = [];
+            $source = $this->pipelineFactory();
 
-            foreach ($this->items as $item) {
-                $val = is_array($item) ? $item[$value] : $item->$value;
+            return new static(function () use ($source, $value, $key): \Generator {
+                foreach ($source() as $item) {
+                    $val = is_array($item) ? ($item[$value] ?? null) : ($item->$value ?? null);
 
-                if ($key !== null) {
-                    $k           = is_array($item) ? $item[$key] : $item->$key;
-                    $results[$k] = $val;
-                } else {
-                    $results[] = $val;
+                    if ($key !== null) {
+                        $k = is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null);
+                        yield $k => $val;
+                    } else {
+                        yield $val;
+                    }
                 }
-            }
-
-            return new static($results);
-        }
-
-        /**
-         * Sort the collection using an optional callback.
-         *
-         * When no callback is provided, uses the default PHP comparison.
-         *
-         * @param  callable|null  $callback  fn(mixed $a, mixed $b): int
-         * @return static
-         */
-        public function sort(?callable $callback = null): static
-        {
-            $items = $this->items;
-
-            $callback ? usort($items, $callback) : sort($items);
-
-            return new static($items);
-        }
-
-        /**
-         * Sort the collection by a field value.
-         *
-         * @param  string  $key        The field to sort by.
-         * @param  bool    $ascending  True for ASC, false for DESC.
-         * @return static
-         */
-        public function sortBy(string $key, bool $ascending = true): static
-        {
-            $items = $this->items;
-
-            usort($items, function (mixed $a, mixed $b) use ($key): int {
-                $valA = is_array($a) ? $a[$key] : $a->$key;
-                $valB = is_array($b) ? $b[$key] : $b->$key;
-
-                return is_numeric($valA) && is_numeric($valB)
-                    ? $valA <=> $valB
-                    : strcasecmp((string) $valA, (string) $valB);
             });
-
-            return new static($ascending ? $items : array_reverse($items));
-        }
-
-        /**
-         * Reverse the order of items.
-         *
-         * @return static
-         */
-        public function reverse(): static
-        {
-            return new static(array_reverse($this->items, true));
-        }
-
-        /**
-         * Return only unique items, optionally de-duplicated by field.
-         *
-         * @param  string|null  $key  Field to use for uniqueness comparison.
-         * @return static
-         */
-        public function unique(?string $key = null): static
-        {
-            if ($key === null) {
-                return new static(array_unique($this->items));
-            }
-
-            $seen  = [];
-            $items = [];
-
-            foreach ($this->items as $k => $item) {
-                $val = is_array($item) ? $item[$key] : $item->$key;
-
-                if (! in_array($val, $seen, true)) {
-                    $seen[]   = $val;
-                    $items[$k] = $item;
-                }
-            }
-
-            return new static($items);
-        }
-
-        /**
-         * Flatten nested arrays to a single level or to a given depth.
-         *
-         * @param  float  $depth  Depth limit (INF for full flattening).
-         * @return static
-         */
-        public function flatten(float $depth = INF): static
-        {
-            return new static(self::flattenArray($this->items, $depth));
-        }
-
-        /**
-         * Merge additional items into a new Collection.
-         *
-         * @param  array|self  $items
-         * @return static
-         */
-        public function merge(array|self $items): static
-        {
-            return new static(array_merge(
-                $this->items,
-                $items instanceof self ? $items->toArray() : $items
-            ));
-        }
-
-        /**
-         * Return a new Collection with one or more values appended.
-         *
-         * @param  mixed  ...$values
-         * @return static
-         */
-        public function push(mixed ...$values): static
-        {
-            return new static(array_merge($this->items, $values));
-        }
-
-        /**
-         * Return a new Collection with a value prepended.
-         *
-         * @param  mixed  $value
-         * @param  mixed  $key    Optional key for associative prepend.
-         * @return static
-         */
-        public function prepend(mixed $value, mixed $key = null): static
-        {
-            $items = $this->items;
-
-            if ($key !== null) {
-                $items = [$key => $value] + $items;
-            } else {
-                array_unshift($items, $value);
-            }
-
-            return new static($items);
         }
 
         /**
          * Take the first N items.
+         *
+         * Lazy — stops consuming the source after N items.
          *
          * @param  int  $limit
          * @return static
          */
         public function take(int $limit): static
         {
-            return new static(array_slice($this->items, 0, $limit, true));
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $limit): \Generator {
+                $count = 0;
+
+                foreach ($source() as $key => $item) {
+                    if ($count >= $limit) {
+                        break;
+                    }
+
+                    yield $key => $item;
+                    $count++;
+                }
+            });
         }
 
         /**
          * Skip the first N items.
+         *
+         * Lazy — discards the first N items from the source.
          *
          * @param  int  $offset
          * @return static
          */
         public function skip(int $offset): static
         {
-            return new static(array_slice($this->items, $offset, null, true));
-        }
+            $source = $this->pipelineFactory();
 
-        /**
-         * Return a new Collection with keys reset to sequential integers.
-         *
-         * @return static
-         */
-        public function values(): static
-        {
-            return new static(array_values($this->items));
-        }
+            return new static(function () use ($source, $offset): \Generator {
+                $count = 0;
 
-        /**
-         * Return a new Collection containing only the keys.
-         *
-         * @return static
-         */
-        public function keys(): static
-        {
-            return new static(array_keys($this->items));
-        }
+                foreach ($source() as $key => $item) {
+                    if ($count++ < $offset) {
+                        continue;
+                    }
 
-        /**
-         * Return only the items whose keys are in the given list.
-         *
-         * @param  array  $keys
-         * @return static
-         */
-        public function only(array $keys): static
-        {
-            return new static(array_intersect_key($this->items, array_flip($keys)));
-        }
-
-        /**
-         * Return all items except those whose keys are in the given list.
-         *
-         * @param  array  $keys
-         * @return static
-         */
-        public function except(array $keys): static
-        {
-            return new static(array_diff_key($this->items, array_flip($keys)));
+                    yield $key => $item;
+                }
+            });
         }
 
         /**
          * Filter items where a field equals a given value.
+         *
+         * Lazy — executes only when the collection is consumed.
          *
          * @param  string  $key
          * @param  mixed   $value
@@ -385,43 +249,358 @@ if (! class_exists('\KPT\Collection')) {
         }
 
         /**
+         * Flatten nested arrays to a single level or to a given depth.
+         *
+         * Lazy — executes only when the collection is consumed.
+         *
+         * @param  float  $depth  Depth limit (INF for full flattening).
+         * @return static
+         */
+        public function flatten(float $depth = INF): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $depth): \Generator {
+                yield from self::flattenGenerator($source(), $depth);
+            });
+        }
+
+        /**
+         * Merge additional items or another Collection.
+         *
+         * Lazy — chains both sources into a single generator.
+         *
+         * @param  array|static  $items
+         * @return static
+         */
+        public function merge(array|self $items): static
+        {
+            $source = $this->pipelineFactory();
+            $other  = $items instanceof static ? $items->pipelineFactory() : fn() => yield from $items;
+
+            return new static(function () use ($source, $other): \Generator {
+                yield from $source();
+                yield from $other();
+            });
+        }
+
+        /**
+         * Append one or more values.
+         *
+         * Lazy — appends to the end of the pipeline.
+         *
+         * @param  mixed  ...$values
+         * @return static
+         */
+        public function push(mixed ...$values): static
+        {
+            return $this->merge($values);
+        }
+
+        /**
+         * Prepend a value with an optional key.
+         *
+         * Lazy — prepends to the start of the pipeline.
+         *
+         * @param  mixed  $value
+         * @param  mixed  $key
+         * @return static
+         */
+        public function prepend(mixed $value, mixed $key = null): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $value, $key): \Generator {
+                if ($key !== null) {
+                    yield $key => $value;
+                } else {
+                    yield $value;
+                }
+
+                yield from $source();
+            });
+        }
+
+        /**
+         * Return a new Collection with keys reset to sequential integers.
+         *
+         * Lazy — re-indexes keys during consumption.
+         *
+         * @return static
+         */
+        public function values(): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source): \Generator {
+                foreach ($source() as $item) {
+                    yield $item;
+                }
+            });
+        }
+
+        /**
+         * Return a new Collection containing only the keys.
+         *
+         * Lazy — yields keys during consumption.
+         *
+         * @return static
+         */
+        public function keys(): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source): \Generator {
+                foreach ($source() as $key => $item) {
+                    yield $key;
+                }
+            });
+        }
+
+        /**
+         * Return only the items whose keys are in the given list.
+         *
+         * Lazy — filters by key during consumption.
+         *
+         * @param  array  $keys
+         * @return static
+         */
+        public function only(array $keys): static
+        {
+            $source = $this->pipelineFactory();
+            $lookup = array_flip($keys);
+
+            return new static(function () use ($source, $lookup): \Generator {
+                foreach ($source() as $key => $item) {
+                    if (array_key_exists($key, $lookup)) {
+                        yield $key => $item;
+                    }
+                }
+            });
+        }
+
+        /**
+         * Return all items except those whose keys are in the given list.
+         *
+         * Lazy — filters by key during consumption.
+         *
+         * @param  array  $keys
+         * @return static
+         */
+        public function except(array $keys): static
+        {
+            $source = $this->pipelineFactory();
+            $lookup = array_flip($keys);
+
+            return new static(function () use ($source, $lookup): \Generator {
+                foreach ($source() as $key => $item) {
+                    if (! array_key_exists($key, $lookup)) {
+                        yield $key => $item;
+                    }
+                }
+            });
+        }
+
+        /**
          * Zip the collection together with one or more arrays.
          *
-         * Each item in the result is a Collection of corresponding elements.
+         * Lazy — pairs corresponding elements during consumption.
+         * Result length is bounded by the shortest input.
          *
          * @param  array  ...$arrays
          * @return static
          */
         public function zip(array ...$arrays): static
         {
-            $zipped = array_map(
-                fn(mixed $item, mixed ...$rest): static => new static([$item, ...$rest]),
-                $this->items,
-                ...$arrays
-            );
+            $source = $this->pipelineFactory();
 
-            return new static($zipped);
+            return new static(function () use ($source, $arrays): \Generator {
+                $iterators = array_map(fn(array $a) => (function () use ($a): \Generator {
+                    yield from $a;
+                })(), $arrays);
+
+                foreach ($source() as $item) {
+                    $row = [$item];
+
+                    foreach ($iterators as $iterator) {
+                        if (! $iterator->valid()) {
+                            return;
+                        }
+
+                        $row[] = $iterator->current();
+                        $iterator->next();
+                    }
+
+                    yield new static($row);
+                }
+            });
         }
 
         // -------------------------------------------------------------------------
-        // Aggregation — return scalar / mixed values
+        // Eager transformations — must materialize to operate
+        // -------------------------------------------------------------------------
+
+        /**
+         * Reduce the collection to a single value.
+         *
+         * Terminal — consumes the full pipeline.
+         *
+         * @param  callable  $callback  fn(mixed $carry, mixed $item): mixed
+         * @param  mixed     $initial
+         * @return mixed
+         */
+        public function reduce(callable $callback, mixed $initial = null): mixed
+        {
+            $result = $initial;
+
+            foreach ($this->getIterator() as $item) {
+                $result = $callback($result, $item);
+            }
+
+            return $result;
+        }
+
+        /**
+         * Chunk the collection into smaller Collections of a given size.
+         *
+         * Terminal — materializes before chunking.
+         * Returns a Collection of Collections.
+         *
+         * @param  int  $size
+         * @return static
+         */
+        public function chunk(int $size): static
+        {
+            return new static(array_map(
+                fn(array $chunk): static => new static($chunk),
+                array_chunk($this->materialize(), max(1, $size), true)
+            ));
+        }
+
+        /**
+         * Group items into Collections keyed by a field or callback result.
+         *
+         * Terminal — materializes before grouping.
+         * Returns a Collection of Collections.
+         *
+         * @param  string|callable  $key
+         * @return static
+         */
+        public function groupBy(string|callable $key): static
+        {
+            $groups = [];
+
+            foreach ($this->getIterator() as $item) {
+                $groupKey = is_callable($key)
+                    ? $key($item)
+                    : (is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null));
+
+                $groups[$groupKey][] = $item;
+            }
+
+            return new static(array_map(fn(array $group): static => new static($group), $groups));
+        }
+
+        /**
+         * Sort the collection using an optional callback.
+         *
+         * Terminal — materializes before sorting.
+         *
+         * @param  callable|null  $callback
+         * @return static
+         */
+        public function sort(?callable $callback = null): static
+        {
+            $items = $this->materialize();
+
+            $callback ? usort($items, $callback) : sort($items);
+
+            return new static($items);
+        }
+
+        /**
+         * Sort the collection by a field value.
+         *
+         * Terminal — materializes before sorting.
+         *
+         * @param  string  $key
+         * @param  bool    $ascending
+         * @return static
+         */
+        public function sortBy(string $key, bool $ascending = true): static
+        {
+            $items = $this->materialize();
+
+            usort($items, function (mixed $a, mixed $b) use ($key): int {
+                $valA = is_array($a) ? ($a[$key] ?? null) : ($a->$key ?? null);
+                $valB = is_array($b) ? ($b[$key] ?? null) : ($b->$key ?? null);
+
+                return is_numeric($valA) && is_numeric($valB)
+                    ? $valA <=> $valB
+                    : strcasecmp((string) $valA, (string) $valB);
+            });
+
+            return new static($ascending ? $items : array_reverse($items));
+        }
+
+        /**
+         * Reverse the order of items.
+         *
+         * Terminal — materializes before reversing.
+         *
+         * @return static
+         */
+        public function reverse(): static
+        {
+            return new static(array_reverse($this->materialize(), true));
+        }
+
+        /**
+         * Return only unique items, optionally de-duplicated by field.
+         *
+         * Terminal — materializes to track seen values.
+         *
+         * @param  string|null  $key
+         * @return static
+         */
+        public function unique(?string $key = null): static
+        {
+            if ($key === null) {
+                return new static(array_unique($this->materialize()));
+            }
+
+            $seen  = [];
+            $items = [];
+
+            foreach ($this->getIterator() as $k => $item) {
+                $val = is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null);
+
+                if (! in_array($val, $seen, true)) {
+                    $seen[]    = $val;
+                    $items[$k] = $item;
+                }
+            }
+
+            return new static($items);
+        }
+
+        // -------------------------------------------------------------------------
+        // Short-circuit terminal operations
         // -------------------------------------------------------------------------
 
         /**
          * Get the first item, or the first item matching a callback.
          *
-         * @param  callable|null  $callback  fn(mixed $value, mixed $key): bool
-         * @param  mixed          $default   Returned when no match is found.
+         * Short-circuit — stops consuming the pipeline as soon as a match is found.
+         *
+         * @param  callable|null  $callback
+         * @param  mixed          $default
          * @return mixed
          */
         public function first(?callable $callback = null, mixed $default = null): mixed
         {
-            if ($callback === null) {
-                return ! empty($this->items) ? reset($this->items) : $default;
-            }
-
-            foreach ($this->items as $key => $item) {
-                if ($callback($item, $key)) {
+            foreach ($this->getIterator() as $key => $item) {
+                if ($callback === null || $callback($item, $key)) {
                     return $item;
                 }
             }
@@ -432,26 +611,116 @@ if (! class_exists('\KPT\Collection')) {
         /**
          * Get the last item, or the last item matching a callback.
          *
-         * @param  callable|null  $callback  fn(mixed $value, mixed $key): bool
-         * @param  mixed          $default   Returned when no match is found.
+         * Consumes the full pipeline — cannot short-circuit on an unknown-length source.
+         *
+         * @param  callable|null  $callback
+         * @param  mixed          $default
          * @return mixed
          */
         public function last(?callable $callback = null, mixed $default = null): mixed
         {
-            if ($callback === null) {
-                return ! empty($this->items) ? end($this->items) : $default;
-            }
-
             $match = $default;
 
-            foreach ($this->items as $key => $item) {
-                if ($callback($item, $key)) {
+            foreach ($this->getIterator() as $key => $item) {
+                if ($callback === null || $callback($item, $key)) {
                     $match = $item;
                 }
             }
 
             return $match;
         }
+
+        /**
+         * Check whether the collection contains a value or a matching item.
+         *
+         * Short-circuit — stops consuming the pipeline as soon as a match is found.
+         *
+         * @param  mixed        $value
+         * @param  string|null  $key
+         * @return bool
+         */
+        public function contains(mixed $value, ?string $key = null): bool
+        {
+            if (is_callable($value)) {
+                foreach ($this->getIterator() as $k => $item) {
+                    if ($value($item, $k)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            if ($key !== null) {
+                foreach ($this->getIterator() as $item) {
+                    $field = is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null);
+
+                    if ($field === $value) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            foreach ($this->getIterator() as $item) {
+                if ($item === $value) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * Apply a callback to each item for side effects.
+         *
+         * Short-circuit — returning false from the callback stops iteration.
+         * Returns the same Collection to allow continued chaining.
+         *
+         * @param  callable  $callback  fn(mixed $value, mixed $key): mixed
+         * @return static
+         */
+        public function each(callable $callback): static
+        {
+            foreach ($this->getIterator() as $key => $item) {
+                if ($callback($item, $key) === false) {
+                    break;
+                }
+            }
+
+            return $this;
+        }
+
+        /**
+         * Check whether the collection is empty.
+         *
+         * Short-circuit — checks only the first item.
+         *
+         * @return bool
+         */
+        public function isEmpty(): bool
+        {
+            foreach ($this->getIterator() as $_) {
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+         * Check whether the collection is not empty.
+         *
+         * @return bool
+         */
+        public function isNotEmpty(): bool
+        {
+            return ! $this->isEmpty();
+        }
+
+        // -------------------------------------------------------------------------
+        // Aggregation — terminal, consumes the full pipeline
+        // -------------------------------------------------------------------------
 
         /**
          * Sum the values, or the values of a given field.
@@ -461,7 +730,15 @@ if (! class_exists('\KPT\Collection')) {
          */
         public function sum(string|callable|null $key = null): int|float
         {
-            return array_sum($this->resolveValues($key));
+            $total = 0;
+
+            foreach ($this->getIterator() as $item) {
+                $total += is_callable($key)
+                    ? $key($item)
+                    : ($key !== null ? (is_array($item) ? ($item[$key] ?? 0) : ($item->$key ?? 0)) : $item);
+            }
+
+            return $total;
         }
 
         /**
@@ -474,9 +751,17 @@ if (! class_exists('\KPT\Collection')) {
          */
         public function avg(string|callable|null $key = null): float
         {
-            $count = $this->count();
+            $total = 0;
+            $count = 0;
 
-            return $count > 0 ? $this->sum($key) / $count : 0.0;
+            foreach ($this->getIterator() as $item) {
+                $total += is_callable($key)
+                    ? $key($item)
+                    : ($key !== null ? (is_array($item) ? ($item[$key] ?? 0) : ($item->$key ?? 0)) : $item);
+                $count++;
+            }
+
+            return $count > 0 ? $total / $count : 0.0;
         }
 
         /**
@@ -501,78 +786,12 @@ if (! class_exists('\KPT\Collection')) {
             return max($this->resolveValues($key));
         }
 
-        /**
-         * Check whether the collection contains a value or a matching item.
-         *
-         * @param  mixed        $value  A plain value or callable fn(mixed $item): bool
-         * @param  string|null  $key    Optionally check a field rather than the whole item.
-         * @return bool
-         */
-        public function contains(mixed $value, ?string $key = null): bool
-        {
-            if (is_callable($value)) {
-                foreach ($this->items as $k => $item) {
-                    if ($value($item, $k)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            if ($key !== null) {
-                return $this->pluck($key)->contains($value);
-            }
-
-            return in_array($value, $this->items, true);
-        }
-
-        /**
-         * Apply a callback to each item for side effects.
-         *
-         * Returns the same Collection to allow continued chaining.
-         * Returning false from the callback stops iteration.
-         *
-         * @param  callable  $callback  fn(mixed $value, mixed $key): mixed
-         * @return static
-         */
-        public function each(callable $callback): static
-        {
-            foreach ($this->items as $key => $item) {
-                if ($callback($item, $key) === false) {
-                    break;
-                }
-            }
-
-            return $this;
-        }
-
-        /**
-         * Check whether the collection is empty.
-         *
-         * @return bool
-         */
-        public function isEmpty(): bool
-        {
-            return empty($this->items);
-        }
-
-        /**
-         * Check whether the collection is not empty.
-         *
-         * @return bool
-         */
-        public function isNotEmpty(): bool
-        {
-            return ! $this->isEmpty();
-        }
-
         // -------------------------------------------------------------------------
-        // Conversion
+        // Conversion — terminal
         // -------------------------------------------------------------------------
 
         /**
-         * Convert the collection to a plain array.
+         * Materialize and return the collection as a plain array.
          *
          * Nested Collections are recursively converted.
          *
@@ -582,14 +801,14 @@ if (! class_exists('\KPT\Collection')) {
         {
             return array_map(
                 fn(mixed $item): mixed => $item instanceof self ? $item->toArray() : $item,
-                $this->items
+                $this->materialize()
             );
         }
 
         /**
-         * Convert the collection to a JSON string.
+         * Materialize and return the collection as a JSON string.
          *
-         * @param  int  $flags  json_encode flags.
+         * @param  int  $flags
          * @return string
          */
         public function toJson(int $flags = 0): string
@@ -598,17 +817,17 @@ if (! class_exists('\KPT\Collection')) {
         }
 
         // -------------------------------------------------------------------------
-        // Countable
+        // Countable — terminal
         // -------------------------------------------------------------------------
 
         /**
-         * Return the number of items in the collection.
+         * Return the number of items — materializes the full pipeline.
          *
          * @return int
          */
         public function count(): int
         {
-            return count($this->items);
+            return count($this->materialize());
         }
 
         // -------------------------------------------------------------------------
@@ -616,44 +835,42 @@ if (! class_exists('\KPT\Collection')) {
         // -------------------------------------------------------------------------
 
         /**
-         * Return an iterator for use in foreach loops.
+         * Return an iterator.
          *
-         * @return \ArrayIterator
+         * When a pipeline is active, returns the generator directly so foreach
+         * loops consume lazily without materializing.
+         * When eager, wraps the array in an ArrayIterator.
+         *
+         * @return \Traversable
          */
-        public function getIterator(): \ArrayIterator
+        public function getIterator(): \Traversable
         {
-            return new \ArrayIterator($this->items);
+            if ($this->pipeline !== null) {
+                return ($this->pipeline)();
+            }
+
+            return new \ArrayIterator($this->eager ?? []);
         }
 
         // -------------------------------------------------------------------------
-        // ArrayAccess
+        // ArrayAccess — read-only (immutable)
         // -------------------------------------------------------------------------
 
-        /**
-         * @param  mixed  $offset
-         * @return bool
-         */
+        /** @param  mixed  $offset */
         public function offsetExists(mixed $offset): bool
         {
-            return isset($this->items[$offset]);
+            return isset($this->materialize()[$offset]);
         }
 
-        /**
-         * @param  mixed  $offset
-         * @return mixed
-         */
+        /** @param  mixed  $offset */
         public function offsetGet(mixed $offset): mixed
         {
-            return $this->items[$offset];
+            return $this->materialize()[$offset];
         }
 
         /**
-         * Mutation is not permitted on an immutable Collection.
-         *
          * @param  mixed  $offset
          * @param  mixed  $value
-         * @return void
-         *
          * @throws \LogicException
          */
         public function offsetSet(mixed $offset, mixed $value): void
@@ -662,11 +879,7 @@ if (! class_exists('\KPT\Collection')) {
         }
 
         /**
-         * Mutation is not permitted on an immutable Collection.
-         *
          * @param  mixed  $offset
-         * @return void
-         *
          * @throws \LogicException
          */
         public function offsetUnset(mixed $offset): void
@@ -679,45 +892,82 @@ if (! class_exists('\KPT\Collection')) {
         // -------------------------------------------------------------------------
 
         /**
-         * Resolve a flat list of values from the items using a key or callback.
+         * Materialize the pipeline into an array, caching the result.
+         *
+         * Once materialized, the eager array is stored and the pipeline
+         * is cleared so subsequent terminal calls don't re-run the generators.
+         *
+         * @return array
+         */
+        private function materialize(): array
+        {
+            if ($this->eager !== null) {
+                return $this->eager;
+            }
+
+            // Run the generator pipeline and cache the result
+            $this->eager    = iterator_to_array($this->getIterator(), false);
+            $this->pipeline = null;
+
+            return $this->eager;
+        }
+
+        /**
+         * Return a closure that produces a fresh generator from the current source.
+         *
+         * When the source is already eager, wraps it in a generator so lazy
+         * operations have a consistent interface to build on.
+         *
+         * @return \Closure(): \Generator
+         */
+        private function pipelineFactory(): \Closure
+        {
+            if ($this->pipeline !== null) {
+                return $this->pipeline;
+            }
+
+            $items = $this->eager ?? [];
+
+            return function () use ($items): \Generator {
+                yield from $items;
+            };
+        }
+
+        /**
+         * Resolve a flat list of values from the pipeline using a key or callable.
          *
          * @param  string|callable|null  $key
          * @return array
          */
         private function resolveValues(string|callable|null $key): array
         {
-            if ($key === null) {
-                return $this->items;
+            $values = [];
+
+            foreach ($this->getIterator() as $item) {
+                $values[] = is_callable($key)
+                    ? $key($item)
+                    : ($key !== null ? (is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null)) : $item);
             }
 
-            return array_map(
-                fn(mixed $item): mixed => is_callable($key)
-                    ? $key($item)
-                    : (is_array($item) ? $item[$key] : $item->$key),
-                $this->items
-            );
+            return $values;
         }
 
         /**
-         * Recursively flatten an array to a given depth.
+         * Recursively flatten a generator to a given depth.
          *
-         * @param  array  $array
-         * @param  float  $depth
-         * @return array
+         * @param  iterable  $source
+         * @param  float     $depth
+         * @return \Generator
          */
-        private static function flattenArray(array $array, float $depth): array
+        private static function flattenGenerator(iterable $source, float $depth): \Generator
         {
-            $result = [];
-
-            foreach ($array as $item) {
-                if (is_array($item) && $depth > 0) {
-                    $result = array_merge($result, self::flattenArray($item, $depth - 1));
+            foreach ($source as $item) {
+                if (is_iterable($item) && $depth > 0) {
+                    yield from self::flattenGenerator($item, $depth - 1);
                 } else {
-                    $result[] = $item;
+                    yield $item;
                 }
             }
-
-            return $result;
         }
     }
 }
