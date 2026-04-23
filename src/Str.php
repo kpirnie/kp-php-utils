@@ -301,6 +301,44 @@ if (! class_exists('\KPT\Str')) {
                 . mb_substr($value, $endPos);
         }
 
+        /**
+         * Generate a random string of a given length from a configurable alphabet.
+         *
+         * Not cryptographically secure — use Crypto::generateRandString() when
+         * security is a concern.  Suitable for placeholders, test data, and tokens
+         * where unpredictability is not required.
+         *
+         * @param  int     $length    Length of the generated string.
+         * @param  string  $alphabet  Characters to draw from.
+         * @return string
+         */
+        public static function random(
+            int $length = 16,
+            string $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        ): string {
+            $alphabetLength = mb_strlen($alphabet);
+            $result         = '';
+
+            for ($i = 0; $i < max(1, $length); $i++) {
+                $result .= mb_substr($alphabet, rand(0, $alphabetLength - 1), 1);
+            }
+
+            return $result;
+        }
+
+        /**
+         * Convert a string to a URL-friendly slug.
+         *
+         * Delegates to Sanitize::slug() — provided here for discoverability.
+         *
+         * @param  mixed  $value
+         * @return string
+         */
+        public static function slug(mixed $value): string
+        {
+            return \KPT\Sanitize::slug($value);
+        }
+
         // -------------------------------------------------------------------------
         // Extraction
         // -------------------------------------------------------------------------

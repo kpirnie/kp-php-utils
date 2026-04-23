@@ -172,6 +172,28 @@ Returns `bool` for all validation checks unless otherwise noted. All methods are
 
 ---
 
+### `KPT\Cast`
+
+Explicit type casting with safety. Unlike `Sanitize`, no cleaning or validation is performed — values are purely converted between types. When `$nullable` is false (default), failed casts return a typed zero-value. When `$nullable` is true, failed casts return null. All methods are static.
+
+| Method | Description |
+|--------|-------------|
+| `toInt()` | Cast a value to int — non-numeric values return 0 or null |
+| `toFloat()` | Cast a value to float — non-numeric values return 0.0 or null |
+| `toBool()` | Cast a value to bool — recognises true/false, 1/0, yes/no, on/off — unrecognised strings return false or null |
+| `toString()` | Cast a value to string — supports __toString() objects, wraps booleans as 'true'/'false' — arrays and non-stringable objects return '' or null |
+| `toArray()` | Cast a value to array — passes arrays through, decodes JSON strings, casts objects via (array), wraps scalars in a single-element array |
+| `toCollection()` | Cast a value to a KPT\Collection — converts to array first via toArray() |
+| `toUnsignedInt()` | Cast a value to a non-negative int — negative values are clamped to 0 |
+| `toPositiveInt()` | Cast a value to a positive int — zero and negative values return 1 or null |
+| `intOrNull()` | Cast to int or return null on failure — convenience wrapper around toInt($value, true) |
+| `floatOrNull()` | Cast to float or return null on failure — convenience wrapper around toFloat($value, true) |
+| `boolOrNull()` | Cast to bool or return null on failure — convenience wrapper around toBool($value, true) |
+| `stringOrNull()` | Cast to string or return null on failure — convenience wrapper around toString($value, true) |
+| `arrayOrNull()` | Cast to array or return null on failure — convenience wrapper around toArray($value, true) |
+
+---
+
 ### `KPT\Crypto`
 
 Authenticated encryption, hashing, and secure random generation. Requires `ext-openssl` and `ext-sodium`. All methods are static.
@@ -211,6 +233,8 @@ String inspection, search, transformation, and masking utilities. All methods ar
 | `toSnakeCase()` | Convert a string to snake_case — configurable delimiter |
 | `toKebabCase()` | Convert a string to kebab-case |
 | `mask()` | Mask part of a string for safe display — configurable start, end, and mask character |
+| `random()` | Generate a random string of a given length from a configurable alphabet — not cryptographically secure |
+| `slug()` | Convert a string to a URL-friendly slug — delegates to Sanitize::slug() |
 | `between()` | Extract the string between two substrings |
 | `wrap()` | Wrap a string with a prefix and optional suffix |
 | `wordCount()` | Count the words in a string, respecting Unicode characters |
@@ -242,6 +266,8 @@ Array search, sorting, conversion, and dot-notation utilities. All methods are s
 | `last()` | Get the last element — optionally matching a callback |
 | `wrap()` | Ensure a value is an array — wraps scalars, passes arrays through, returns empty array for null |
 | `zip()` | Zip one or more arrays together by index |
+| `chunk()` | Split an array into chunks of a given size — preserves keys within each chunk |
+| `shuffle()` | Return a shuffled copy of an array without modifying the original |
 
 ---
 
@@ -257,6 +283,7 @@ Number formatting and conversion utilities. Requires `ext-intl` for currency and
 | `formatPercent()` | Format a number as a localized percentage string via ICU |
 | `toRoman()` | Convert an integer (1–3999) to a Roman numeral string |
 | `fromRoman()` | Convert a Roman numeral string to an integer |
+| `clamp()` | Clamp a numeric value between a minimum and maximum |
 
 ---
 
@@ -279,6 +306,7 @@ Date, time, and human-readable duration utilities. All methods are static.
 
 | Method | Description |
 |--------|-------------|
+| `now()` | Get the current datetime in a given format (default 'Y-m-d H:i:s') |
 | `timeAgo()` | Return a human-readable "time ago" string — singular/plural labels from seconds to months |
 | `humanDiff()` | Return a human-readable difference between two datetime strings |
 | `isWeekend()` | Check whether a datetime falls on a weekend |
@@ -316,6 +344,7 @@ HTTP request inspection and network utilities. All methods are static.
 | `isHttps()` | Check whether the current request is served over HTTPS |
 | `method()` | Get the current HTTP request method as an uppercase string |
 | `isMethod()` | Check whether the current request uses a given HTTP method |
+| `isBot()` | Check whether the current request appears to be from a bot or crawler — checks User-Agent against known signatures |
 
 ---
 
@@ -668,6 +697,33 @@ A retry utility with exponential backoff, jitter, exception class filtering, and
 | `runOrDefault()` | Execute the operation and return a default value when all attempts fail — never throws |
 | `runOrNull()` | Execute the operation and return null when all attempts fail — convenience wrapper around runOrDefault() |
 | `attempt()` | Static convenience method — retry a callable with default or specified settings |
+
+---
+
+### `KPT\Stopwatch`
+
+A simple execution timer with millisecond precision and memory tracking. Supports start/stop/lap/reset lifecycle, human-readable output, and a static convenience method for measuring callables. Instantiate via `Stopwatch::start()` or `new Stopwatch()`.
+
+| Method | Description |
+|--------|-------------|
+| `start()` | Create and immediately start a new Stopwatch — static factory |
+| `begin()` | Start or restart the stopwatch — clears existing laps and stop time |
+| `stop()` | Stop the stopwatch |
+| `lap()` | Record a lap time with an optional label — elapsed is measured from start, not previous lap |
+| `reset()` | Reset the stopwatch to its initial state |
+| `elapsed()` | Get elapsed time in milliseconds — returns time to stop() if stopped, or time since start() if running |
+| `elapsedSeconds()` | Get elapsed time in seconds |
+| `elapsedHuman()` | Get elapsed time as a human-readable string — scales from ms through minutes |
+| `laps()` | Get all recorded laps — each entry contains label, time, elapsed, and memory |
+| `fastestLap()` | Get the fastest lap by elapsed time — returns null when no laps recorded |
+| `slowestLap()` | Get the slowest lap by elapsed time — returns null when no laps recorded |
+| `memoryUsage()` | Get current memory usage in bytes |
+| `peakMemoryUsage()` | Get peak memory usage in bytes |
+| `memoryDelta()` | Get memory consumed since the stopwatch was started in bytes |
+| `memoryHuman()` | Get memory usage as a human-readable string via Num::formatBytes() |
+| `measure()` | Static — measure the execution time of a callable — returns result, elapsed ms, and memory delta |
+| `isRunning()` | Check whether the stopwatch is currently running |
+| `hasStarted()` | Check whether the stopwatch has been started |
 
 ---
 

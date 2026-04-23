@@ -471,5 +471,33 @@ if (! class_exists('\KPT\Arr')) {
 
             return $result;
         }
+
+        /**
+         * Split an array into chunks of a given size.
+         *
+         * Returns an array of arrays.  Preserves keys within each chunk.
+         *
+         * @param  array  $array
+         * @param  int    $size
+         * @return array
+         */
+        public static function chunk(array $array, int $size): array
+        {
+            return array_chunk($array, max(1, $size), true);
+        }
+
+        /**
+         * Return a shuffled copy of an array without modifying the original.
+         *
+         * @param  array  $array
+         * @return array
+         */
+        public static function shuffle(array $array): array
+        {
+            $copy = $array;
+            shuffle($copy);
+
+            return $copy;
+        }
     }
 }

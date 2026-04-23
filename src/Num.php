@@ -90,6 +90,19 @@ if (! class_exists('\KPT\Num')) {
         }
 
         /**
+         * Clamp a numeric value between a minimum and maximum.
+         *
+         * @param  int|float  $value
+         * @param  int|float  $min
+         * @param  int|float  $max
+         * @return int|float
+         */
+        public static function clamp(int|float $value, int|float $min, int|float $max): int|float
+        {
+            return max($min, min($max, $value));
+        }
+
+        /**
          * Format a number as a currency string.
          *
          * @param  int|float  $value

@@ -58,6 +58,17 @@ if (! class_exists('\KPT\DateTime')) {
         // -------------------------------------------------------------------------
 
         /**
+         * Get the current datetime in a given format.
+         *
+         * @param  string  $format  Output format (default 'Y-m-d H:i:s').
+         * @return string
+         */
+        public static function now(string $format = 'Y-m-d H:i:s'): string
+        {
+            return (new \DateTimeImmutable())->format($format);
+        }
+
+        /**
          * Return a human-readable "time ago" string for a given datetime.
          *
          * Resolves differences from seconds through years, with singular/plural

@@ -312,5 +312,75 @@ if (! class_exists('\KPT\Http')) {
         {
             return self::method() === strtoupper($method);
         }
+
+        /**
+         * Check whether the current request appears to be from a bot or crawler.
+         *
+         * Checks the User-Agent string against a list of known bot signatures.
+         * Not exhaustive — sophisticated bots that spoof UA strings will not be caught.
+         *
+         * @return bool
+         */
+        public static function isBot(): bool
+        {
+            $ua = strtolower(self::getUserAgent());
+
+            if ($ua === '') {
+                return false;
+            }
+
+            $signatures = [
+                'bot',
+                'crawler',
+                'spider',
+                'slurp',
+                'search',
+                'fetch',
+                'curl',
+                'wget',
+                'python',
+                'ruby',
+                'java',
+                'perl',
+                'libwww',
+                'httpclient',
+                'axios',
+                'go-http',
+                'okhttp',
+                'scrapy',
+                'googlebot',
+                'bingbot',
+                'yandexbot',
+                'duckduckbot',
+                'baiduspider',
+                'facebookexternalhit',
+                'twitterbot',
+                'rogerbot',
+                'linkedinbot',
+                'embedly',
+                'quora',
+                'showyoubot',
+                'outbrain',
+                'pinterest',
+                'slackbot',
+                'vkshare',
+                'w3c_validator',
+                'whatsapp',
+                'telegrambot',
+                'applebot',
+                'semrushbot',
+                'ahrefsbot',
+                'mj12bot',
+                'dotbot',
+            ];
+
+            foreach ($signatures as $signature) {
+                if (str_contains($ua, $signature)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }
