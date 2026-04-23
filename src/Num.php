@@ -88,5 +88,151 @@ if (! class_exists('\KPT\Num')) {
 
             return round(pow(1024, $base - $index), $precision) . ' ' . $suffixes[$index];
         }
+
+        /**
+         * Format a number as a currency string.
+         *
+         * @param  int|float  $value
+         * @param  string     $currency   ISO 4217 currency code (default 'USD').
+         * @param  string     $locale     ICU locale string (default 'en_US').
+         * @param  int        $precision  Decimal places (default 2).
+         * @return string
+         */
+        public static function formatCurrency(
+            int|float $value,
+            string $currency = 'USD',
+            string $locale = 'en_US',
+            int $precision = 2
+        ): string {
+            $formatter = new \NumberFormatter($locale, \NumberFormatter::CURRENCY);
+            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, $precision);
+
+            return $formatter->formatCurrency((float) $value, $currency);
+        }
+
+        /**
+         * Format a number as a percentage string.
+         *
+         * @param  int|float  $value      Value between 0 and 1 (e.g. 0.75 → '75%').
+         * @param  int        $precision  Decimal places (default 1).
+         * @param  string     $locale     ICU locale string (default 'en_US').
+         * @return string
+         */
+        public static function formatPercent(int|float $value, int $precision = 1, string $locale = 'en_US'): string
+        {
+            $formatter = new \NumberFormatter($locale, \NumberFormatter::PERCENT);
+            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, $precision);
+
+            return $formatter->format((float) $value);
+        }
+
+        /**
+         * Convert an integer to a Roman numeral string.
+         *
+         * Supports values from 1 to 3999.
+         * Returns an empty string for out-of-range input.
+         *
+         * @param  int  $value
+         * @return string
+         */
+        public static function toRoman(int $value): string
+        {
+            if ($value < 1 || $value > 3999) {
+                return '';
+            }
+
+            $map = [
+                1000 => 'M',
+                900 => 'CM',
+                800 => 'DCCC',
+                700 => 'DCC',
+                600 => 'DC',
+                500 => 'D',
+                400 => 'CD',
+                300 => 'CCC',
+                200 => 'CC',
+                100 => 'C',
+                90 => 'XC',
+                80 => 'LXXX',
+                70 => 'LXX',
+                60 => 'LX',
+                50 => 'L',
+                40 => 'XL',
+                30 => 'XXX',
+                20 => 'XX',
+                10 => 'X',
+                9 => 'IX',
+                8 => 'VIII',
+                7 => 'VII',
+                6 => 'VI',
+                5 => 'V',
+                4 => 'IV',
+                3 => 'III',
+                2 => 'II',
+                1 => 'I',
+            ];
+
+            $result = '';
+
+            foreach ($map as $num => $numeral) {
+                while ($value >= $num) {
+                    $result .= $numeral;
+                    $value  -= $num;
+                }
+            }
+
+            return $result;
+        }
+
+        /**
+         * Convert a Roman numeral string to an integer.
+         *
+         * Case-insensitive. Returns 0 for invalid input.
+         *
+         * @param  string  $value
+         * @return int
+         */
+        public static function fromRoman(string $value): int
+        {
+            $map = [
+                'M' => 1000,
+                'CM' => 900,
+                'CD' => 400,
+                'D' => 500,
+                'C' => 100,
+                'XC' => 90,
+                'XL' => 40,
+                'L' => 50,
+                'X' => 10,
+                'IX' => 9,
+                'IV' => 4,
+                'V' => 5,
+                'I' => 1,
+            ];
+
+            $value  = strtoupper(trim($value));
+            $result = 0;
+            $i      = 0;
+            $length = strlen($value);
+
+            while ($i < $length) {
+                // Check two-character numeral first before falling back to one
+                $two = substr($value, $i, 2);
+                $one = $value[$i];
+
+                if (isset($map[$two])) {
+                    $result += $map[$two];
+                    $i      += 2;
+                } elseif (isset($map[$one])) {
+                    $result += $map[$one];
+                    $i++;
+                } else {
+                    // Invalid character encountered
+                    return 0;
+                }
+            }
+
+            return $result;
+        }
     }
 }

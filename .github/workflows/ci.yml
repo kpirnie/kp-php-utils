@@ -38,7 +38,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
-          extensions: redis, memcached, apcu, openssl, sodium, curl
+          extensions: redis, memcached, apcu, openssl, sodium, curl, intl
           coverage: xdebug
 
       - name: Validate composer.json

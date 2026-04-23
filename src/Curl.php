@@ -353,6 +353,92 @@ if (! class_exists('\KPT\Curl')) {
             return self::post($url, $options);
         }
 
+        /**
+         * Perform a PUT request, rejecting private and loopback addresses.
+         *
+         * @param  string  $url
+         * @param  array   $options
+         * @return array
+         */
+        public static function safePut(string $url, array $options = []): array
+        {
+            if (self::isPrivateUrl($url)) {
+                return self::buildError('Requests to private or loopback addresses are not permitted.');
+            }
+
+            return self::put($url, $options);
+        }
+
+        /**
+         * Perform a PATCH request, rejecting private and loopback addresses.
+         *
+         * @param  string  $url
+         * @param  array   $options
+         * @return array
+         */
+        public static function safePatch(string $url, array $options = []): array
+        {
+            if (self::isPrivateUrl($url)) {
+                return self::buildError('Requests to private or loopback addresses are not permitted.');
+            }
+
+            return self::patch($url, $options);
+        }
+
+        /**
+         * Perform a DELETE request, rejecting private and loopback addresses.
+         *
+         * @param  string  $url
+         * @param  array   $options
+         * @return array
+         */
+        public static function safeDelete(string $url, array $options = []): array
+        {
+            if (self::isPrivateUrl($url)) {
+                return self::buildError('Requests to private or loopback addresses are not permitted.');
+            }
+
+            return self::delete($url, $options);
+        }
+
+        /**
+         * Return a callable that prepends a base URL to all requests.
+         *
+         * Useful when making multiple calls to the same API without repeating
+         * the base URL on every call.
+         *
+         * Example:
+         * <code>
+         * $api = Curl::withBaseUrl('https://api.example.com/v1');
+         * $response = $api('get', '/users', ['headers' => ['Authorization' => 'Bearer ...']]);
+         * </code>
+         *
+         * @param  string  $baseUrl        The base URL to prepend.
+         * @param  array   $defaultOptions Options merged into every request.
+         * @return \Closure
+         */
+        public static function withBaseUrl(string $baseUrl, array $defaultOptions = []): \Closure
+        {
+            $baseUrl = rtrim($baseUrl, '/');
+
+            return function (string $method, string $path = '', array $options = []) use ($baseUrl, $defaultOptions): array {
+                $url     = $baseUrl . '/' . ltrim($path, '/');
+                $method  = strtolower($method);
+                $options = array_merge($defaultOptions, $options);
+
+                // Delegate to the matching static method if it exists, otherwise request()
+                return match ($method) {
+                    'get'    => self::get($url, $options),
+                    'post'   => self::post($url, $options),
+                    'put'    => self::put($url, $options),
+                    'patch'  => self::patch($url, $options),
+                    'delete' => self::delete($url, $options),
+                    'head'   => self::head($url, $options),
+                    default  => self::request($url, array_merge($options, ['method' => strtoupper($method)])),
+                };
+            };
+        }
+
         // -------------------------------------------------------------------------
         // Response helpers
         // -------------------------------------------------------------------------

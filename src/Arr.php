@@ -184,5 +184,171 @@ if (! class_exists('\KPT\Arr')) {
 
             return $result;
         }
+
+        // -------------------------------------------------------------------------
+        // Transformation
+        // -------------------------------------------------------------------------
+
+        /**
+         * Flatten a multi-dimensional array to a single level.
+         *
+         * @param  array  $array
+         * @param  float  $depth  Depth limit (INF for full flattening).
+         * @return array
+         */
+        public static function flatten(array $array, float $depth = INF): array
+        {
+            $result = [];
+
+            foreach ($array as $item) {
+                if (is_array($item) && $depth > 0) {
+                    $result = array_merge($result, self::flatten($item, $depth - 1));
+                } else {
+                    $result[] = $item;
+                }
+            }
+
+            return $result;
+        }
+
+        /**
+         * Pluck a column of values from a multi-dimensional array.
+         *
+         * Optionally key the result by another column.
+         *
+         * @param  array        $array
+         * @param  string       $value  Column to pluck as values.
+         * @param  string|null  $key    Column to use as keys (optional).
+         * @return array
+         */
+        public static function pluck(array $array, string $value, ?string $key = null): array
+        {
+            $results = [];
+
+            foreach ($array as $item) {
+                $val = is_array($item) ? ($item[$value] ?? null) : ($item->$value ?? null);
+
+                if ($key !== null) {
+                    $k           = is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null);
+                    $results[$k] = $val;
+                } else {
+                    $results[] = $val;
+                }
+            }
+
+            return $results;
+        }
+
+        /**
+         * Group a multi-dimensional array by a field or callback result.
+         *
+         * @param  array            $array
+         * @param  string|callable  $key  Field name or fn(mixed $item): mixed
+         * @return array
+         */
+        public static function groupBy(array $array, string|callable $key): array
+        {
+            $result = [];
+
+            foreach ($array as $item) {
+                $groupKey = is_callable($key)
+                    ? $key($item)
+                    : (is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null));
+
+                $result[$groupKey][] = $item;
+            }
+
+            return $result;
+        }
+
+        /**
+         * Return only the elements whose keys are in the given list.
+         *
+         * @param  array  $array
+         * @param  array  $keys
+         * @return array
+         */
+        public static function only(array $array, array $keys): array
+        {
+            return array_intersect_key($array, array_flip($keys));
+        }
+
+        /**
+         * Return all elements except those whose keys are in the given list.
+         *
+         * @param  array  $array
+         * @param  array  $keys
+         * @return array
+         */
+        public static function except(array $array, array $keys): array
+        {
+            return array_diff_key($array, array_flip($keys));
+        }
+
+        // -------------------------------------------------------------------------
+        // Dot notation
+        // -------------------------------------------------------------------------
+
+        /**
+         * Flatten a nested array into dot-notation keys.
+         *
+         * Example: ['user' => ['name' => 'Kevin']] → ['user.name' => 'Kevin']
+         *
+         * @param  array   $array
+         * @param  string  $prefix  Internal prefix for recursion.
+         * @return array
+         */
+        public static function dotNotationFlatten(array $array, string $prefix = ''): array
+        {
+            $result = [];
+
+            foreach ($array as $key => $value) {
+                $dotKey = $prefix !== '' ? $prefix . '.' . $key : (string) $key;
+
+                if (is_array($value) && ! empty($value)) {
+                    $result += self::dotNotationFlatten($value, $dotKey);
+                } else {
+                    $result[$dotKey] = $value;
+                }
+            }
+
+            return $result;
+        }
+
+        /**
+         * Expand a flat dot-notation array into a nested array.
+         *
+         * Example: ['user.name' => 'Kevin'] → ['user' => ['name' => 'Kevin']]
+         *
+         * @param  array  $array
+         * @return array
+         */
+        public static function dotNotationExpand(array $array): array
+        {
+            $result = [];
+
+            foreach ($array as $key => $value) {
+                // Fast path — no dot means top-level key only
+                if (! str_contains((string) $key, '.')) {
+                    $result[$key] = $value;
+                    continue;
+                }
+
+                $segments = explode('.', (string) $key);
+                $current  = &$result;
+
+                foreach ($segments as $segment) {
+                    if (! isset($current[$segment]) || ! is_array($current[$segment])) {
+                        $current[$segment] = [];
+                    }
+
+                    $current = &$current[$segment];
+                }
+
+                $current = $value;
+            }
+
+            return $result;
+        }
     }
 }

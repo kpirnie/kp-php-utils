@@ -159,5 +159,146 @@ if (! class_exists('\KPT\Str')) {
 
             return is_null($value);
         }
+
+        // -------------------------------------------------------------------------
+        // Transformation
+        // -------------------------------------------------------------------------
+
+        /**
+         * Truncate a string to a maximum number of characters.
+         *
+         * @param  string  $value
+         * @param  int     $length   Maximum character length.
+         * @param  string  $suffix   Appended when truncation occurs (default '...').
+         * @return string
+         */
+        public static function truncate(string $value, int $length, string $suffix = '...'): string
+        {
+            if (mb_strlen($value) <= $length) {
+                return $value;
+            }
+
+            return mb_substr($value, 0, $length - mb_strlen($suffix)) . $suffix;
+        }
+
+        /**
+         * Truncate a string to a maximum length, breaking at a word boundary.
+         *
+         * @param  string  $value
+         * @param  int     $length   Maximum character length.
+         * @param  string  $suffix   Appended when truncation occurs (default '...').
+         * @return string
+         */
+        public static function excerpt(string $value, int $length, string $suffix = '...'): string
+        {
+            if (mb_strlen($value) <= $length) {
+                return $value;
+            }
+
+            // Break at the last whitespace within the allowed length
+            $truncated = mb_substr($value, 0, $length - mb_strlen($suffix));
+            $lastSpace = mb_strrpos($truncated, ' ');
+
+            return ($lastSpace !== false ? mb_substr($truncated, 0, $lastSpace) : $truncated) . $suffix;
+        }
+
+        /**
+         * Convert a string to Title Case.
+         *
+         * @param  string  $value
+         * @return string
+         */
+        public static function toTitleCase(string $value): string
+        {
+            return mb_convert_case($value, MB_CASE_TITLE, 'UTF-8');
+        }
+
+        /**
+         * Convert a string to camelCase.
+         *
+         * @param  string  $value
+         * @return string
+         */
+        public static function toCamelCase(string $value): string
+        {
+            $str = self::toStudlyCase($value);
+
+            return lcfirst($str);
+        }
+
+        /**
+         * Convert a string to StudlyCase (PascalCase).
+         *
+         * @param  string  $value
+         * @return string
+         */
+        public static function toStudlyCase(string $value): string
+        {
+            return str_replace(' ', '', mb_convert_case(
+                preg_replace('/[\-_]+/', ' ', $value),
+                MB_CASE_TITLE,
+                'UTF-8'
+            ));
+        }
+
+        /**
+         * Convert a string to snake_case.
+         *
+         * @param  string  $value
+         * @param  string  $delimiter  Separator character (default '_').
+         * @return string
+         */
+        public static function toSnakeCase(string $value, string $delimiter = '_'): string
+        {
+            // Insert delimiter before uppercase letters following lowercase letters or digits
+            $value = preg_replace('/([a-z\d])([A-Z])/', '$1' . $delimiter . '$2', $value);
+
+            // Replace spaces and existing delimiters with the chosen delimiter
+            $value = preg_replace('/[\s\-_]+/', $delimiter, $value);
+
+            return mb_strtolower($value);
+        }
+
+        /**
+         * Convert a string to kebab-case.
+         *
+         * @param  string  $value
+         * @return string
+         */
+        public static function toKebabCase(string $value): string
+        {
+            return self::toSnakeCase($value, '-');
+        }
+
+        /**
+         * Mask part of a string for safe display.
+         *
+         * Replaces characters between $start and $end with $char.
+         * Negative $end is counted from the right, mirroring substr() behaviour.
+         *
+         * Examples:
+         *   mask('user@example.com', 2, -7)  → 'us***********om'
+         *   mask('4111111111111111', 4, -4)  → '4111********1111'
+         *   mask('+14085551234', 2, -2)      → '+1********34'
+         *
+         * @param  string  $value
+         * @param  int     $start  Characters to leave visible at the start.
+         * @param  int     $end    Characters to leave visible at the end (negative).
+         * @param  string  $char   Masking character (default '*').
+         * @return string
+         */
+        public static function mask(string $value, int $start = 0, int $end = 0, string $char = '*'): string
+        {
+            $length = mb_strlen($value);
+            $endPos = $end < 0 ? $length + $end : $length - $end;
+
+            if ($start >= $endPos) {
+                return $value;
+            }
+
+            return mb_substr($value, 0, $start)
+                . str_repeat(mb_substr($char, 0, 1), $endPos - $start)
+                . mb_substr($value, $endPos);
+        }
     }
 }

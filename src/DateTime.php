@@ -118,5 +118,125 @@ if (! class_exists('\KPT\DateTime')) {
             // Beyond a year — fall back to a formatted date string
             return (new \DateTimeImmutable('@' . $time))->format($fallback);
         }
+
+        /**
+         * Return a human-readable difference between two datetime strings.
+         *
+         * @param  string  $from     Start datetime string.
+         * @param  string  $to       End datetime string (default 'now').
+         * @param  string  $fallback Date format used when diff exceeds one year.
+         * @return string
+         */
+        public static function humanDiff(string $from, string $to = 'now', string $fallback = 'M j, Y'): string
+        {
+            $fromTime = strtotime($from);
+            $toTime   = strtotime($to);
+
+            if ($fromTime === false || $toTime === false) {
+                return '';
+            }
+
+            $diff = abs($toTime - $fromTime);
+
+            if ($diff < self::MINUTE_IN_SECONDS) {
+                $n = $diff;
+                return $n . ' ' . ($n === 1 ? 'Second' : 'Seconds');
+            }
+
+            if ($diff < self::HOUR_IN_SECONDS) {
+                $n = (int) floor($diff / self::MINUTE_IN_SECONDS);
+                return $n . ' ' . ($n === 1 ? 'Minute' : 'Minutes');
+            }
+
+            if ($diff < self::DAY_IN_SECONDS) {
+                $n = (int) floor($diff / self::HOUR_IN_SECONDS);
+                return $n . ' ' . ($n === 1 ? 'Hour' : 'Hours');
+            }
+
+            if ($diff < self::WEEK_IN_SECONDS) {
+                $n = (int) floor($diff / self::DAY_IN_SECONDS);
+                return $n . ' ' . ($n === 1 ? 'Day' : 'Days');
+            }
+
+            if ($diff < self::MONTH_IN_SECONDS) {
+                $n = (int) floor($diff / self::WEEK_IN_SECONDS);
+                return $n . ' ' . ($n === 1 ? 'Week' : 'Weeks');
+            }
+
+            if ($diff < self::YEAR_IN_SECONDS) {
+                $n = (int) floor($diff / self::MONTH_IN_SECONDS);
+                return $n . ' ' . ($n === 1 ? 'Month' : 'Months');
+            }
+
+            return (new \DateTimeImmutable('@' . $fromTime))->format($fallback);
+        }
+
+        /**
+         * Check whether a datetime string falls on a weekend.
+         *
+         * @param  string  $datetime
+         * @return bool
+         */
+        public static function isWeekend(string $datetime): bool
+        {
+            $time = strtotime($datetime);
+
+            if ($time === false) {
+                return false;
+            }
+
+            return in_array((int) date('N', $time), [6, 7], true);
+        }
+
+        /**
+         * Check whether a datetime string falls on a weekday.
+         *
+         * @param  string  $datetime
+         * @return bool
+         */
+        public static function isWeekday(string $datetime): bool
+        {
+            return ! self::isWeekend($datetime);
+        }
+
+        /**
+         * Get the start of the day (midnight) for a given datetime string.
+         *
+         * @param  string  $datetime
+         * @param  string  $format   Output format (default 'Y-m-d H:i:s').
+         * @return string            Formatted datetime, or empty string on failure.
+         */
+        public static function startOfDay(string $datetime, string $format = 'Y-m-d H:i:s'): string
+        {
+            $time = strtotime($datetime);
+
+            if ($time === false) {
+                return '';
+            }
+
+            return (new \DateTimeImmutable('@' . $time))
+                ->setTime(0, 0, 0)
+                ->format($format);
+        }
+
+        /**
+         * Get the end of the day (23:59:59) for a given datetime string.
+         *
+         * @param  string  $datetime
+         * @param  string  $format   Output format (default 'Y-m-d H:i:s').
+         * @return string            Formatted datetime, or empty string on failure.
+         */
+        public static function endOfDay(string $datetime, string $format = 'Y-m-d H:i:s'): string
+        {
+            $time = strtotime($datetime);
+
+            if ($time === false) {
+                return '';
+            }
+
+            return (new \DateTimeImmutable('@' . $time))
+                ->setTime(23, 59, 59)
+                ->format($format);
+        }
     }
 }
