@@ -562,7 +562,7 @@ if (! class_exists('\KPT\Sanitize')) {
         ): string {
             try {
                 // Pre-clean: strip tags, special chars, and all whitespace
-                $dt = \DateTimeImmutable::createFromFormat($format, self::string($value, false, false));
+                $dt = \DateTimeImmutable::createFromFormat($format, self::string($value, false, true));
 
                 return $dt !== false ? $dt->format($output) : '';
             } catch (\Exception) {
@@ -613,12 +613,12 @@ if (! class_exists('\KPT\Sanitize')) {
             // Remove on* event attributes and any attribute containing javascript: or data:
             foreach (iterator_to_array($xpath->query('//@*')) as $attr) {
                 $name  = strtolower($attr->nodeName);
-                $value = strtolower($attr->nodeValue);
+                $attr_val = strtolower($attr->nodeValue);
 
                 if (
                     str_starts_with($name, 'on') ||
-                    str_contains($value, 'javascript:') ||
-                    str_contains($value, 'data:')
+                    str_contains($attr_val, 'javascript:') ||
+                    str_contains($attr_val, 'data:')
                 ) {
                     // ownerElement can be null if the node was already detached
                     $attr->ownerElement?->removeAttributeNode($attr);
