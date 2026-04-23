@@ -5,7 +5,7 @@
  *
  * This is our primary validation class
  *
- * @since      8.4
+ * @since      8.2
  * @author     Kevin Pirnie <me@kpirnie.com>
  * @package    KP Library
  */
@@ -15,16 +15,13 @@ declare(strict_types=1);
 // namespace this class
 namespace KPT;
 
-// define the primary app path if not already defined
-defined('KPTV_PATH') || die('Direct Access is not allowed!');
-
 // make sure the class does not already exist
 if (! class_exists('\KPT\Validate')) {
 
     /**
-     * KPTV_Validate
+     * Validate
      *
-     * A modern PHP 8.5 validation utility.  All methods return bool unless
+     * A modern PHP 8.2+ validation utility.  All methods return bool unless
      * otherwise noted.  Where a value benefits from pre-cleaning before
      * validation, KPT\Validate is used internally.
      *
@@ -35,7 +32,6 @@ if (! class_exists('\KPT\Validate')) {
      */
     class Validate
     {
-
         // -------------------------------------------------------------------------
         // Scalars
         // -------------------------------------------------------------------------
@@ -306,7 +302,7 @@ if (! class_exists('\KPT\Validate')) {
          */
         public static function password_strength(
             mixed $value,
-            int $min_length      = 8,
+            int $min_length = 8,
             bool $require_special = true
         ): bool {
             $str = (string) $value;
@@ -503,8 +499,8 @@ if (! class_exists('\KPT\Validate')) {
          */
         public static function ip(
             mixed $value,
-            bool $ipv6     = true,
-            bool $private  = true,
+            bool $ipv6 = true,
+            bool $private = true,
             bool $reserved = true
         ): bool {
             return \KPT\Sanitize::ip($value, $ipv6, $private, $reserved) !== '';
@@ -1352,7 +1348,11 @@ if (! class_exists('\KPT\Validate')) {
          */
         public static function json(mixed $value): bool
         {
-            return json_validate(trim((string) $value));
+            $str = trim((string) $value);
+
+            return function_exists('json_validate')
+                ? json_validate($str)
+                : (json_decode($str) !== null || json_last_error() === JSON_ERROR_NONE);
         }
 
         /**
