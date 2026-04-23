@@ -211,6 +211,12 @@ String inspection, search, transformation, and masking utilities. All methods ar
 | `toSnakeCase()` | Convert a string to snake_case — configurable delimiter |
 | `toKebabCase()` | Convert a string to kebab-case |
 | `mask()` | Mask part of a string for safe display — configurable start, end, and mask character |
+| `between()` | Extract the string between two substrings |
+| `wrap()` | Wrap a string with a prefix and optional suffix |
+| `wordCount()` | Count the words in a string, respecting Unicode characters |
+| `padLeft()` | Pad a string on the left to a given length — multibyte-safe |
+| `padRight()` | Pad a string on the right to a given length — multibyte-safe |
+| `padBoth()` | Pad a string on both sides to a given length — multibyte-safe |
 
 ---
 
@@ -231,6 +237,11 @@ Array search, sorting, conversion, and dot-notation utilities. All methods are s
 | `except()` | Return all elements except those whose keys are in a given list |
 | `dotNotationFlatten()` | Flatten a nested array into dot-notation keys |
 | `dotNotationExpand()` | Expand a flat dot-notation array into a nested array |
+| `isAssoc()` | Check whether an array is associative |
+| `first()` | Get the first element — optionally matching a callback |
+| `last()` | Get the last element — optionally matching a callback |
+| `wrap()` | Ensure a value is an array — wraps scalars, passes arrays through, returns empty array for null |
+| `zip()` | Zip one or more arrays together by index |
 
 ---
 
@@ -274,6 +285,18 @@ Date, time, and human-readable duration utilities. All methods are static.
 | `isWeekday()` | Check whether a datetime falls on a weekday |
 | `startOfDay()` | Get the start of the day (midnight) for a given datetime |
 | `endOfDay()` | Get the end of the day (23:59:59) for a given datetime |
+| `addDays()` | Add a number of days to a datetime string |
+| `subDays()` | Subtract a number of days from a datetime string |
+| `addMonths()` | Add a number of months to a datetime string |
+| `subMonths()` | Subtract a number of months from a datetime string |
+| `addYears()` | Add a number of years to a datetime string |
+| `subYears()` | Subtract a number of years from a datetime string |
+| `addHours()` | Add a number of hours to a datetime string |
+| `subHours()` | Subtract a number of hours from a datetime string |
+| `addMinutes()` | Add a number of minutes to a datetime string |
+| `subMinutes()` | Subtract a number of minutes from a datetime string |
+| `isBetween()` | Check whether a datetime falls between two other datetimes — inclusive |
+| `toDateTimeImmutable()` | Convert a datetime string to a DateTimeImmutable instance — returns null on failure |
 
 ---
 
@@ -289,6 +312,10 @@ HTTP request inspection and network utilities. All methods are static.
 | `getUserAgent()` | Get the client's User-Agent string, sanitized via `Sanitize::string()` |
 | `getUserReferer()` | Get the HTTP referer for the current request, sanitized via `Sanitize::url()` |
 | `cidrMatch()` | Check whether an IP address (v4 or v6) falls within a CIDR range |
+| `isAjax()` | Check whether the current request was made via XMLHttpRequest |
+| `isHttps()` | Check whether the current request is served over HTTPS |
+| `method()` | Get the current HTTP request method as an uppercase string |
+| `isMethod()` | Check whether the current request uses a given HTTP method |
 
 ---
 
@@ -425,6 +452,10 @@ An immutable fluent array wrapper implementing `Countable`, `IteratorAggregate`,
 | `toJson()` | Convert to a JSON string |
 | `count()` | Return the number of items (`Countable`) |
 | `getIterator()` | Return an iterator for use in foreach loops (`IteratorAggregate`) |
+| `flatMap()` | Map over items and flatten the result by one level — lazy |
+| `mapWithKeys()` | Map over items re-keying the result via the callback — lazy |
+| `tap()` | Pass each item through a callback for side effects without interrupting the pipeline — lazy |
+| `pipe()` | Pass the entire Collection into a callable and return the result — terminal |
 
 ---
 
@@ -558,6 +589,85 @@ A CLI utility providing ANSI output, styled text, tables, progress indicators, i
 | `setAnsi()` | Enable or disable ANSI color/style output |
 | `isAnsi()` | Check whether ANSI output is currently enabled |
 | `terminalWidth()` | Get the terminal width in columns — falls back to 80 |
+
+---
+
+### `KPT\Uuid`
+
+UUID generation (v1, v3, v4, v5, v7) and validation (v1–v7) with standard, compact, and binary output formats. All methods are static.
+
+#### Format constants
+
+| Constant | Description |
+|----------|-------------|
+| `FORMAT_STANDARD` | Standard hyphenated format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `FORMAT_COMPACT` | Compact format without hyphens: `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
+| `FORMAT_BINARY` | Raw 16-byte binary string |
+
+#### Namespace constants (RFC 4122)
+
+| Constant | Description |
+|----------|-------------|
+| `NS_DNS` | DNS namespace UUID |
+| `NS_URL` | URL namespace UUID |
+| `NS_OID` | OID namespace UUID |
+| `NS_X500` | X.500 namespace UUID |
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `v1()` | Generate a version 1 UUID — time-based with randomized node |
+| `v3()` | Generate a version 3 UUID — name-based, MD5 hashed |
+| `v4()` | Generate a version 4 UUID — cryptographically random |
+| `v5()` | Generate a version 5 UUID — name-based, SHA-1 hashed |
+| `v7()` | Generate a version 7 UUID — millisecond time-ordered, ideal for database keys |
+| `isValid()` | Validate a UUID string (v1–v7) — case-insensitive |
+| `isVersion()` | Validate a UUID of a specific version |
+| `isCompact()` | Validate a compact UUID (32 hex characters, no hyphens) |
+| `toCompact()` | Convert a standard UUID to compact format |
+| `toBinary()` | Convert a standard UUID to raw binary (16 bytes) |
+| `fromCompact()` | Convert a compact UUID to standard hyphenated format |
+| `fromBinary()` | Convert raw binary (16 bytes) to standard hyphenated format |
+| `version()` | Extract the version number from a UUID string |
+| `timestamp()` | Extract the Unix timestamp in milliseconds from a v7 UUID |
+
+---
+
+### `KPT\Pipeline`
+
+A simple immutable pipeline for passing a value through a series of callables. Supports both array-based and fluent chained stage addition, exception handling, and both returning and side-effect terminal operations. Instantiate via `Pipeline::send()`.
+
+| Method | Description |
+|--------|-------------|
+| `send()` | Begin a new pipeline with a given value |
+| `through()` | Set the pipeline stages from an array of callables — replaces any existing stages |
+| `pipe()` | Add a single stage to the pipeline — chainable |
+| `catch()` | Register an exception handler — receives the exception and current value, return value becomes the result |
+| `thenReturn()` | Execute the pipeline and return the final value |
+| `then()` | Execute the pipeline and pass the result to a final callable |
+| `thenDo()` | Execute the pipeline for side effects only — return value is discarded |
+
+---
+
+### `KPT\Retry`
+
+A retry utility with exponential backoff, jitter, exception class filtering, and a per-attempt callback. Supports both fluent configuration and a static convenience method for simple cases. Instantiate via `Retry::operation()` or use `Retry::attempt()` for quick one-liners.
+
+| Method | Description |
+|--------|-------------|
+| `operation()` | Begin a new Retry for the given callable |
+| `times()` | Set the maximum number of attempts including the first try |
+| `waitMs()` | Set the base delay between attempts in milliseconds |
+| `exponential()` | Enable exponential backoff with a configurable multiplier and delay cap |
+| `withJitter()` | Enable or disable random jitter on the delay — prevents thundering herd |
+| `retryOn()` | Retry only when the exception matches one of the given classes |
+| `dontRetryOn()` | Never retry when the exception matches one of the given classes — takes precedence over retryOn() |
+| `onRetry()` | Register a callback called after each failed attempt — receives exception, attempt number, and next delay |
+| `run()` | Execute the operation retrying on failure — throws the last exception when all attempts are exhausted |
+| `runOrDefault()` | Execute the operation and return a default value when all attempts fail — never throws |
+| `runOrNull()` | Execute the operation and return null when all attempts fail — convenience wrapper around runOrDefault() |
+| `attempt()` | Static convenience method — retry a callable with default or specified settings |
 
 ---
 

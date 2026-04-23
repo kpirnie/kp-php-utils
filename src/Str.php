@@ -300,5 +300,140 @@ if (! class_exists('\KPT\Str')) {
                 . str_repeat(mb_substr($char, 0, 1), $endPos - $start)
                 . mb_substr($value, $endPos);
         }
+
+        // -------------------------------------------------------------------------
+        // Extraction
+        // -------------------------------------------------------------------------
+
+        /**
+         * Extract the string between two substrings.
+         *
+         * Returns empty string when either delimiter is not found.
+         *
+         * @param  string  $value
+         * @param  string  $start  Opening delimiter.
+         * @param  string  $end    Closing delimiter.
+         * @return string
+         */
+        public static function between(string $value, string $start, string $end): string
+        {
+            $startPos = mb_strpos($value, $start);
+
+            if ($startPos === false) {
+                return '';
+            }
+
+            $startPos += mb_strlen($start);
+            $endPos    = mb_strpos($value, $end, $startPos);
+
+            if ($endPos === false) {
+                return '';
+            }
+
+            return mb_substr($value, $startPos, $endPos - $startPos);
+        }
+
+        /**
+         * Wrap a string with a prefix and optional suffix.
+         *
+         * When $suffix is omitted the prefix is used on both sides.
+         *
+         * @param  string       $value
+         * @param  string       $prefix
+         * @param  string|null  $suffix  Defaults to $prefix when null.
+         * @return string
+         */
+        public static function wrap(string $value, string $prefix, ?string $suffix = null): string
+        {
+            return $prefix . $value . ($suffix ?? $prefix);
+        }
+
+        // -------------------------------------------------------------------------
+        // Measurement
+        // -------------------------------------------------------------------------
+
+        /**
+         * Count the words in a string, respecting Unicode characters.
+         *
+         * @param  string  $value
+         * @return int
+         */
+        public static function wordCount(string $value): int
+        {
+            // Match sequences of Unicode letters and combining marks
+            return (int) preg_match_all('/\p{L}+/u', trim($value));
+        }
+
+        // -------------------------------------------------------------------------
+        // Padding
+        // -------------------------------------------------------------------------
+
+        /**
+         * Pad a string on the left to a given length.
+         *
+         * Multibyte-safe — uses mb_strlen for length calculation.
+         *
+         * @param  string  $value
+         * @param  int     $length   Target total length.
+         * @param  string  $pad      Padding character(s) (default ' ').
+         * @return string
+         */
+        public static function padLeft(string $value, int $length, string $pad = ' '): string
+        {
+            $padNeeded = $length - mb_strlen($value);
+
+            if ($padNeeded <= 0) {
+                return $value;
+            }
+
+            return mb_substr(str_repeat($pad, (int) ceil($padNeeded / mb_strlen($pad))), 0, $padNeeded) . $value;
+        }
+
+        /**
+         * Pad a string on the right to a given length.
+         *
+         * Multibyte-safe — uses mb_strlen for length calculation.
+         *
+         * @param  string  $value
+         * @param  int     $length   Target total length.
+         * @param  string  $pad      Padding character(s) (default ' ').
+         * @return string
+         */
+        public static function padRight(string $value, int $length, string $pad = ' '): string
+        {
+            $padNeeded = $length - mb_strlen($value);
+
+            if ($padNeeded <= 0) {
+                return $value;
+            }
+
+            return $value . mb_substr(str_repeat($pad, (int) ceil($padNeeded / mb_strlen($pad))), 0, $padNeeded);
+        }
+
+        /**
+         * Pad a string on both sides to a given length.
+         *
+         * When the padding cannot be distributed evenly the right side gets
+         * the extra character.  Multibyte-safe.
+         *
+         * @param  string  $value
+         * @param  int     $length   Target total length.
+         * @param  string  $pad      Padding character(s) (default ' ').
+         * @return string
+         */
+        public static function padBoth(string $value, int $length, string $pad = ' '): string
+        {
+            $padNeeded = $length - mb_strlen($value);
+
+            if ($padNeeded <= 0) {
+                return $value;
+            }
+
+            $leftPad  = (int) floor($padNeeded / 2);
+            $rightPad = (int) ceil($padNeeded / 2);
+            $padStr   = str_repeat($pad, (int) ceil($padNeeded / mb_strlen($pad)));
+
+            return mb_substr($padStr, 0, $leftPad) . $value . mb_substr($padStr, 0, $rightPad);
+        }
     }
 }

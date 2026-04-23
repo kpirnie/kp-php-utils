@@ -263,5 +263,54 @@ if (! class_exists('\KPT\Http')) {
 
             return true;
         }
+
+        // -------------------------------------------------------------------------
+        // Request inspection
+        // -------------------------------------------------------------------------
+
+        /**
+         * Check whether the current request was made via XMLHttpRequest (AJAX).
+         *
+         * @return bool
+         */
+        public static function isAjax(): bool
+        {
+            return isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+                && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        }
+
+        /**
+         * Check whether the current request is served over HTTPS.
+         *
+         * @return bool
+         */
+        public static function isHttps(): bool
+        {
+            return (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (! empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+                || (! empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on')
+                || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
+        }
+
+        /**
+         * Get the current HTTP request method.
+         *
+         * @return string  Uppercase method string (e.g. 'GET', 'POST'), or empty string when unavailable.
+         */
+        public static function method(): string
+        {
+            return strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+        }
+
+        /**
+         * Check whether the current request uses a given HTTP method.
+         *
+         * @param  string  $method  Method name — case-insensitive.
+         * @return bool
+         */
+        public static function isMethod(string $method): bool
+        {
+            return self::method() === strtoupper($method);
+        }
     }
 }

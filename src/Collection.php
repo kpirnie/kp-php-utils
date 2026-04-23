@@ -152,6 +152,47 @@ if (! class_exists('\KPT\Collection')) {
         }
 
         /**
+         * Map over items and flatten the result by one level.
+         *
+         * Lazy — executes only when the collection is consumed.
+         *
+         * @param  callable  $callback  fn(mixed $value, mixed $key): iterable
+         * @return static
+         */
+        public function flatMap(callable $callback): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $callback): \Generator {
+                foreach ($source() as $key => $item) {
+                    yield from $callback($item, $key);
+                }
+            });
+        }
+
+        /**
+         * Map over items, re-keying the result via the callback.
+         *
+         * The callback must return a single-element array of [key => value].
+         * Lazy — executes only when the collection is consumed.
+         *
+         * @param  callable  $callback  fn(mixed $value, mixed $key): array
+         * @return static
+         */
+        public function mapWithKeys(callable $callback): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $callback): \Generator {
+                foreach ($source() as $key => $item) {
+                    foreach ($callback($item, $key) as $newKey => $newValue) {
+                        yield $newKey => $newValue;
+                    }
+                }
+            });
+        }
+
+        /**
          * Pluck values for a given field, optionally keyed by another field.
          *
          * Lazy — executes only when the collection is consumed.
@@ -690,6 +731,41 @@ if (! class_exists('\KPT\Collection')) {
             }
 
             return $this;
+        }
+
+        /**
+         * Pass each item through a callback for side effects without interrupting the pipeline.
+         *
+         * Unlike each(), returning false does not stop iteration.
+         * Lazy — executes only when the collection is consumed.
+         *
+         * @param  callable  $callback  fn(mixed $value, mixed $key): mixed
+         * @return static
+         */
+        public function tap(callable $callback): static
+        {
+            $source = $this->pipelineFactory();
+
+            return new static(function () use ($source, $callback): \Generator {
+                foreach ($source() as $key => $item) {
+                    $callback($item, $key);
+                    yield $key => $item;
+                }
+            });
+        }
+
+        /**
+         * Pass the entire Collection into a callable and return the result.
+         *
+         * Breaks out of the fluent chain — the callable can return anything.
+         * Terminal — the Collection is passed as-is, lazy or not.
+         *
+         * @param  callable  $callback  fn(static $collection): mixed
+         * @return mixed
+         */
+        public function pipe(callable $callback): mixed
+        {
+            return $callback($this);
         }
 
         /**

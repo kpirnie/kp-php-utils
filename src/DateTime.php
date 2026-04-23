@@ -238,5 +238,204 @@ if (! class_exists('\KPT\DateTime')) {
                 ->setTime(23, 59, 59)
                 ->format($format);
         }
+
+        // -------------------------------------------------------------------------
+        // Arithmetic
+        // -------------------------------------------------------------------------
+
+        /**
+         * Add a number of days to a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $days
+         * @param  string  $format   Output format (default 'Y-m-d H:i:s').
+         * @return string            Formatted datetime, or empty string on failure.
+         */
+        public static function addDays(string $datetime, int $days, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, ($days >= 0 ? '+' : '') . $days . ' days', $format);
+        }
+
+        /**
+         * Subtract a number of days from a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $days
+         * @param  string  $format
+         * @return string
+         */
+        public static function subDays(string $datetime, int $days, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, '-' . abs($days) . ' days', $format);
+        }
+
+        /**
+         * Add a number of months to a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $months
+         * @param  string  $format
+         * @return string
+         */
+        public static function addMonths(string $datetime, int $months, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, ($months >= 0 ? '+' : '') . $months . ' months', $format);
+        }
+
+        /**
+         * Subtract a number of months from a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $months
+         * @param  string  $format
+         * @return string
+         */
+        public static function subMonths(string $datetime, int $months, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, '-' . abs($months) . ' months', $format);
+        }
+
+        /**
+         * Add a number of years to a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $years
+         * @param  string  $format
+         * @return string
+         */
+        public static function addYears(string $datetime, int $years, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, ($years >= 0 ? '+' : '') . $years . ' years', $format);
+        }
+
+        /**
+         * Subtract a number of years from a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $years
+         * @param  string  $format
+         * @return string
+         */
+        public static function subYears(string $datetime, int $years, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, '-' . abs($years) . ' years', $format);
+        }
+
+        /**
+         * Add a number of hours to a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $hours
+         * @param  string  $format
+         * @return string
+         */
+        public static function addHours(string $datetime, int $hours, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, ($hours >= 0 ? '+' : '') . $hours . ' hours', $format);
+        }
+
+        /**
+         * Subtract a number of hours from a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $hours
+         * @param  string  $format
+         * @return string
+         */
+        public static function subHours(string $datetime, int $hours, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, '-' . abs($hours) . ' hours', $format);
+        }
+
+        /**
+         * Add a number of minutes to a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $minutes
+         * @param  string  $format
+         * @return string
+         */
+        public static function addMinutes(string $datetime, int $minutes, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, ($minutes >= 0 ? '+' : '') . $minutes . ' minutes', $format);
+        }
+
+        /**
+         * Subtract a number of minutes from a datetime string.
+         *
+         * @param  string  $datetime
+         * @param  int     $minutes
+         * @param  string  $format
+         * @return string
+         */
+        public static function subMinutes(string $datetime, int $minutes, string $format = 'Y-m-d H:i:s'): string
+        {
+            return self::modify($datetime, '-' . abs($minutes) . ' minutes', $format);
+        }
+
+        // -------------------------------------------------------------------------
+        // Comparison
+        // -------------------------------------------------------------------------
+
+        /**
+         * Check whether a datetime falls between two other datetimes (inclusive).
+         *
+         * @param  string  $datetime
+         * @param  string  $start
+         * @param  string  $end
+         * @return bool
+         */
+        public static function isBetween(string $datetime, string $start, string $end): bool
+        {
+            $time      = strtotime($datetime);
+            $startTime = strtotime($start);
+            $endTime   = strtotime($end);
+
+            if ($time === false || $startTime === false || $endTime === false) {
+                return false;
+            }
+
+            return $time >= $startTime && $time <= $endTime;
+        }
+
+        /**
+         * Convert a datetime string to a DateTimeImmutable instance.
+         *
+         * @param  string  $datetime
+         * @return \DateTimeImmutable|null  Null when the string cannot be parsed.
+         */
+        public static function toDateTimeImmutable(string $datetime): ?\DateTimeImmutable
+        {
+            $time = strtotime($datetime);
+
+            if ($time === false) {
+                return null;
+            }
+
+            return new \DateTimeImmutable('@' . $time);
+        }
+
+        /**
+         * Apply a strtotime-compatible modifier to a datetime string.
+         *
+         * Shared by all arithmetic methods to avoid duplication.
+         *
+         * @param  string  $datetime
+         * @param  string  $modifier
+         * @param  string  $format
+         * @return string
+         */
+        private static function modify(string $datetime, string $modifier, string $format): string
+        {
+            $time = strtotime($datetime);
+
+            if ($time === false) {
+                return '';
+            }
+
+            $modified = (new \DateTimeImmutable('@' . $time))->modify($modifier);
+
+            return $modified !== false ? $modified->format($format) : '';
+        }
     }
 }

@@ -350,5 +350,126 @@ if (! class_exists('\KPT\Arr')) {
 
             return $result;
         }
+
+        // -------------------------------------------------------------------------
+        // Inspection
+        // -------------------------------------------------------------------------
+
+        /**
+         * Check whether an array is associative.
+         *
+         * An array is considered associative when its keys are not a sequential
+         * integer sequence starting from 0.
+         *
+         * @param  array  $array
+         * @return bool
+         */
+        public static function isAssoc(array $array): bool
+        {
+            if (empty($array)) {
+                return false;
+            }
+
+            return array_keys($array) !== range(0, count($array) - 1);
+        }
+
+        // -------------------------------------------------------------------------
+        // Retrieval
+        // -------------------------------------------------------------------------
+
+        /**
+         * Get the first element of an array, or the first element matching a callback.
+         *
+         * @param  array          $array
+         * @param  callable|null  $callback  fn(mixed $value, mixed $key): bool
+         * @param  mixed          $default   Returned when no match is found.
+         * @return mixed
+         */
+        public static function first(array $array, ?callable $callback = null, mixed $default = null): mixed
+        {
+            if ($callback === null) {
+                return ! empty($array) ? reset($array) : $default;
+            }
+
+            foreach ($array as $key => $value) {
+                if ($callback($value, $key)) {
+                    return $value;
+                }
+            }
+
+            return $default;
+        }
+
+        /**
+         * Get the last element of an array, or the last element matching a callback.
+         *
+         * @param  array          $array
+         * @param  callable|null  $callback  fn(mixed $value, mixed $key): bool
+         * @param  mixed          $default   Returned when no match is found.
+         * @return mixed
+         */
+        public static function last(array $array, ?callable $callback = null, mixed $default = null): mixed
+        {
+            if ($callback === null) {
+                return ! empty($array) ? end($array) : $default;
+            }
+
+            $match = $default;
+
+            foreach ($array as $key => $value) {
+                if ($callback($value, $key)) {
+                    $match = $value;
+                }
+            }
+
+            return $match;
+        }
+
+        /**
+         * Ensure a value is an array.
+         *
+         * Passes arrays through unchanged.  Wraps scalars and objects in an array.
+         * Returns an empty array for null.
+         *
+         * @param  mixed  $value
+         * @return array
+         */
+        public static function wrap(mixed $value): array
+        {
+            if (is_null($value)) {
+                return [];
+            }
+
+            return is_array($value) ? $value : [$value];
+        }
+
+        // -------------------------------------------------------------------------
+        // Combination
+        // -------------------------------------------------------------------------
+
+        /**
+         * Zip one or more arrays together by index.
+         *
+         * Each element in the result is an array of corresponding elements
+         * from the input arrays.  Result length matches the longest input.
+         *
+         * @param  array  ...$arrays
+         * @return array
+         */
+        public static function zip(array ...$arrays): array
+        {
+            if (empty($arrays)) {
+                return [];
+            }
+
+            $length = max(array_map('count', $arrays));
+            $result = [];
+
+            for ($i = 0; $i < $length; $i++) {
+                $result[] = array_map(fn(array $arr): mixed => $arr[$i] ?? null, $arrays);
+            }
+
+            return $result;
+        }
     }
 }
