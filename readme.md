@@ -43,7 +43,7 @@ $clean = Sanitize::map($_POST, [
 
 // Map validation
 $errors = Validate::map($clean, [
-    'name'  => fn($v) => Validate::min_length($v, 2),
+    'name'  => fn($v) => Validate::minLength($v, 2),
     'email' => fn($v) => Validate::email($v),
     'age'   => fn($v) => Validate::between($v, 18, 120),
 ]);

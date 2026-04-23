@@ -301,7 +301,7 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  mixed  $value
          * @return string  Normalised MAC address, or empty string on failure.
          */
-        public static function mac_address(mixed $value): string
+        public static function macAddress(mixed $value): string
         {
             // Pre-clean then normalise delimiter to colon before validation
             $str = strtolower(str_replace('-', ':', self::string($value, false, false)));
@@ -344,7 +344,7 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  mixed  $value
          * @return string  e.g. '#ff6600', or empty string on failure.
          */
-        public static function hex_color(mixed $value): string
+        public static function hexColor(mixed $value): string
         {
             // Pre-clean then strip the leading hash before validation
             $str = ltrim(self::string($value, false, false), '#');
@@ -512,7 +512,10 @@ if (! class_exists('\KPT\Sanitize')) {
             $str = trim((string) $value);
 
             // Fast structural check before full decode
-            if (function_exists('json_validate') ? ! json_validate($str) : json_decode($str) === null && json_last_error() !== JSON_ERROR_NONE) {
+            if (
+                function_exists('json_validate') ? ! json_validate($str) :
+                json_decode($str) === null && json_last_error() !== JSON_ERROR_NONE
+            ) {
                 return null;
             }
 
@@ -700,8 +703,12 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  bool         $strict    Use strict type comparison.
          * @return mixed
          */
-        public static function whitelist(mixed $value, array $allowed, mixed $default = null, bool $strict = false): mixed
-        {
+        public static function whitelist(
+            mixed $value,
+            array $allowed,
+            mixed $default = null,
+            bool $strict = false
+        ): mixed {
             return in_array($value, $allowed, $strict) ? $value : $default;
         }
 
@@ -817,7 +824,7 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  array<string,int|array>  $definition  filter_input_array definition map.
          * @return array<string,mixed>
          */
-        public static function input_array(int $type, array $definition): array
+        public static function inputArray(int $type, array $definition): array
         {
             $result = filter_input_array($type, $definition, false);
 

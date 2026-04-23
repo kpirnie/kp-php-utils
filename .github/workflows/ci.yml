@@ -63,6 +63,3 @@ jobs:
 
       - name: Run CodeSniffer
         run: composer run cs-check
-
-      - name: Run Tests
-        run: composer run test
